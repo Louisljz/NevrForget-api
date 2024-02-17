@@ -9,7 +9,7 @@ from langchain_core.utils.function_calling import convert_to_openai_function
 import json
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from typing import List
 from dotenv import load_dotenv
@@ -20,7 +20,8 @@ app = FastAPI()
 model = ChatOpenAI()
 embeddings = OpenAIEmbeddings()
 output_parser = StrOutputParser()
-DB_PATH = "./chroma_db"
+vector_store = Chroma(embedding_function=embeddings, persist_directory="./chroma_db", collection_name="memory")
+date = datetime.now().date()
 
 class Message(BaseModel):
     type: str
@@ -32,32 +33,22 @@ class RetrieveMemory(BaseModel):
 
 retrieve_func = convert_to_openai_function(RetrieveMemory)
 
-def retrieve_docs(query: str, retriever):
-    return retriever.get_relevant_documents(query)
+def get_date_stamp(date):
+    return int(datetime(date.year, date.month, date.day).timestamp())
 
-def contextualize_query(chat_history, question):
+def retrieve_docs(query: str, retriever):
+    documents = retriever.get_relevant_documents(query)
+    docs_str = '\n\n'.join([doc.page_content for doc in documents])
+    return docs_str
+
+def convert_chat(chat_history):
     messages = []
     for message in chat_history:
         if message.type == 'human':
             messages.append(HumanMessage(message.text))
         elif message.type == 'ai':
             messages.append(AIMessage(message.text))
-
-    contextualize_q_system_prompt = """Given a chat history and the latest user question \
-    which might reference context in the chat history, formulate a standalone question \
-    which can be understood without the chat history. Do NOT answer the question, \
-    just reformulate it if needed and otherwise return it as is."""
-    contextualize_q_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", contextualize_q_system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{question}"),
-        ]
-    )
-    contextualize_q_chain = contextualize_q_prompt | model | output_parser
-    contextualize_query = contextualize_q_chain.invoke({"chat_history": messages, "question": question})
-    return contextualize_query
-
+    return messages
 
 async def stream_response(iterable):
     for item in iterable:
@@ -65,45 +56,62 @@ async def stream_response(iterable):
 
 
 @app.post("/summarize")
-def summarize(chat: str):
-    prompt = ChatPromptTemplate.from_template(
-        "You should summarize this conversation, by listing down memorable activities throughout the day: {chat}"
+def summarize(chat_history: List[Message]):
+    messages = convert_chat(chat_history)
+    summarize_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You should summarize this conversation, by listing down memorable activities throughout the day."),
+            MessagesPlaceholder(variable_name="chat_history"),
+        ]
     )
 
-    chain = prompt | model | output_parser
-    summary = chain.invoke({"chat": chat})
-
-    date_string = datetime.now().strftime("%Y-%m-%d")
-    activity = f"Daily Activites on {date_string}: \n{summary}"
-
-    Chroma.from_texts([activity], embeddings, persist_directory=DB_PATH, collection_name='memory')
+    chain = summarize_prompt | model | output_parser
+    summary = chain.invoke({"chat_history": messages})
+    activity = f"Daily Activites on {date}: \n{summary}"
+    vector_store.add_texts([activity], [{'date_stamp': get_date_stamp(date)}])
     return {'summary': activity}
 
 
 @app.post("/query")
 def query(question: str, chat_history: List[Message]):
-    retriever = Chroma(embedding_function=embeddings, persist_directory=DB_PATH, collection_name='memory').as_retriever()
-    if chat_history:
-        question = contextualize_query(chat_history, question)
-    
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a dementia assistant, and your job is to refresh elderly memories by recalling events from the past and encourage them to storytell their day."),
-        ("user", "{question}")
+    messages = convert_chat(chat_history)
+    general_prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a dementia assistant, and your job is to refresh elderly memories by recalling events from the past and encourage them to storytell their day. Below is the chat history, use it as context."),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("user", "Answer this question: {question}")
     ])
+
     model_with_function = model.bind(functions=[retrieve_func])
-    chain = prompt | model_with_function
-    response = chain.invoke({"question": question})
+    chain = general_prompt | model_with_function
+    response = chain.invoke({"question": question, "chat_history": messages})
     
     if response.additional_kwargs:
         args = json.loads(response.additional_kwargs['function_call']['arguments'])
+        print('Query:', args['query'])
+        retriever = vector_store.as_retriever(search_kwargs={'k': 1})
         docs = retrieve_docs(args['query'], retriever)
+        print('Documents:\n', docs)
+
         template = """Answer the question based only on the following context: {context}
         Question: {question}
         If the context does not contain the answer, please respond with "I don't know".
         """
-        prompt = ChatPromptTemplate.from_template(template)
-        chain = prompt | model | output_parser
+        rag_prompt = ChatPromptTemplate.from_template(template)
+
+        chain = rag_prompt | model | output_parser
         streamer = chain.stream({"context": docs, "question": question})
         return StreamingResponse(stream_response(streamer), media_type="text/event-stream")
     else:
         return response.content
+
+
+@app.get('/flashcard')
+def flashcard(n: int):
+    stamp = get_date_stamp(date - timedelta(days=7))
+    res = vector_store._collection.get(where={'date_stamp': {'$gt': stamp}})
+    doc_str = '\n\n'.join(res['documents'])
+
+    flashcard_prompt = ChatPromptTemplate.from_template('Create {n} flashcard(s) based on the following context: {documents}. Return a list of dictionaries, consist of "question" and "answer" keys. Parse in JSON format.')
+    chain = flashcard_prompt | model | output_parser
+    flashcards = chain.invoke({'n': n, 'documents': doc_str})
+    return json.loads(flashcards)
