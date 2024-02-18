@@ -8,7 +8,6 @@ from langchain_core.utils.function_calling import convert_to_openai_function
 
 import json
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from typing import List
@@ -49,10 +48,6 @@ def convert_chat(chat_history):
         elif message.type == 'ai':
             messages.append(AIMessage(message.text))
     return messages
-
-async def stream_response(iterable):
-    for item in iterable:
-        yield item
 
 
 @app.post("/summarize")
@@ -99,8 +94,8 @@ def query(question: str, chat_history: List[Message]):
         rag_prompt = ChatPromptTemplate.from_template(template)
 
         chain = rag_prompt | model | output_parser
-        streamer = chain.stream({"context": docs, "question": question})
-        return StreamingResponse(stream_response(streamer), media_type="text/event-stream")
+        answer = chain.invoke({"context": docs, "question": question})
+        return answer
     else:
         return response.content
 
