@@ -15,8 +15,10 @@
 1. `pip install -r requirements.txt`
 2. `uvicorn api:app --reload`
 3. Open in browser _localhost:8000/docs_
+4. Type `trulens-eval` on your terminal to open evaluation dashboard.
 
 ## Server Setup
+
 1. `gcloud init`: setup your account and project-id
 2. `docker build -t gcr.io/nevr-forget/api:starter .`: Build docker image, test-run container from docker desktop
 3. `docker push gcr.io/nevr-forget/api:starter`: Push the Docker image to Google Container Registry

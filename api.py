@@ -4,7 +4,11 @@ from langchain_community.vectorstores import Chroma
 
 from langchain.schema.output_parser import StrOutputParser
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnablePassthrough
 from langchain_core.utils.function_calling import convert_to_openai_function
+
+from trulens_eval import Tru, TruChain
+from trulens_feedback import init_feedbacks
 
 import json
 from fastapi import FastAPI
@@ -16,11 +20,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = FastAPI()
+tru = Tru()
 model = ChatOpenAI()
 embeddings = OpenAIEmbeddings()
 output_parser = StrOutputParser()
 vector_store = Chroma(embedding_function=embeddings, persist_directory="./chroma_db", collection_name="memory")
 date = datetime.now().date()
+
 
 class Message(BaseModel):
     type: str
@@ -28,17 +34,15 @@ class Message(BaseModel):
 
 class RetrieveMemory(BaseModel):
     """Call this to retrieve memories from the database"""
-    query: str = Field(description="search query")
+    query: str = Field(description="pass in question here for vector search")
 
 retrieve_func = convert_to_openai_function(RetrieveMemory)
 
 def get_date_stamp(date):
     return int(datetime(date.year, date.month, date.day).timestamp())
 
-def retrieve_docs(query: str, retriever):
-    documents = retriever.get_relevant_documents(query)
-    docs_str = '\n\n'.join([doc.page_content for doc in documents])
-    return docs_str
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
 
 def convert_chat(chat_history):
     messages = []
@@ -60,8 +64,8 @@ def summarize(chat_history: List[Message]):
         ]
     )
 
-    chain = summarize_prompt | model | output_parser
-    summary = chain.invoke({"chat_history": messages})
+    sum_chain = summarize_prompt | model | output_parser
+    summary = sum_chain.invoke({"chat_history": messages})
     activity = f"Daily Activites on {date}: \n{summary}"
     vector_store.add_texts([activity], [{'date_stamp': get_date_stamp(date)}])
     return {'summary': activity}
@@ -77,15 +81,12 @@ def query(question: str, chat_history: List[Message]):
     ])
 
     model_with_function = model.bind(functions=[retrieve_func])
-    chain = general_prompt | model_with_function
-    response = chain.invoke({"question": question, "chat_history": messages})
+    general_chain = general_prompt | model_with_function
+    response = general_chain.invoke({"question": question, "chat_history": messages})
     
     if response.additional_kwargs:
         args = json.loads(response.additional_kwargs['function_call']['arguments'])
-        print('Query:', args['query'])
         retriever = vector_store.as_retriever(search_kwargs={'k': 1})
-        docs = retrieve_docs(args['query'], retriever)
-        print('Documents:\n', docs)
 
         template = """Answer the question based only on the following context: {context}
         Question: {question}
@@ -93,8 +94,19 @@ def query(question: str, chat_history: List[Message]):
         """
         rag_prompt = ChatPromptTemplate.from_template(template)
 
-        chain = rag_prompt | model | output_parser
-        answer = chain.invoke({"context": docs, "question": question})
+        rag_chain = (
+            {"context": retriever | format_docs, "question": RunnablePassthrough()}
+            | rag_prompt
+            | model
+            | output_parser
+        )
+        feedbacks = init_feedbacks(rag_chain)
+        tru_recorder = TruChain(rag_chain,
+                                app_id='Model 1.0',
+                                feedbacks=feedbacks)
+        
+        with tru_recorder:
+            answer = rag_chain.invoke(args['query'])
         return answer
     else:
         return response.content
@@ -107,6 +119,6 @@ def flashcard(n: int):
     doc_str = '\n\n'.join(res['documents'])
 
     flashcard_prompt = ChatPromptTemplate.from_template('Create {n} flashcard(s) based on the following context: {documents}. Return a list of dictionaries, consist of "question" and "answer" keys. Parse in JSON format.')
-    chain = flashcard_prompt | model | output_parser
-    flashcards = chain.invoke({'n': n, 'documents': doc_str})
+    card_chain = flashcard_prompt | model | output_parser
+    flashcards = card_chain.invoke({'n': n, 'documents': doc_str})
     return json.loads(flashcards)

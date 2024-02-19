@@ -7,4 +7,5 @@ openai
 pydantic
 python-dotenv
 python-multipart
+trulens_eval
 uvicorn
