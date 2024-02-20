@@ -10,6 +10,26 @@
 
 3. **Flashcard**: Get n Flashcards from chat history over past week
 
+## Trulens Evaluation
+
+1. **RAG**:
+
+- Groundedness: Ensures responses are based on factual or provided information, with explanations for how the conclusion was reached.
+- Question-Context Relevance: Measures the relevance of each context chunk retrieved to the query.
+- Question-Answer Relevance: Make sure that the response answers the question.
+
+2. **Summary**:
+
+- Conciseness: Ensure that the summary is expressed in concise manner.
+- Coherence: Assess how logically connected and well-structured the summary is.
+- Comprehensiveness: Assess how well the summary covers the key points from the original content.
+
+3. **Flashcards**:
+
+- Relevance: Ensure that the flashcards are relevant to the facts in the provided context.
+- Correctness: Evaluating the factual accuracy of the questions and answers.
+- Helpfulness: Evaluate whether the flashcards are likely to aid in learning or memorization.
+
 ## Run Instructions
 
 1. `pip install -r requirements.txt`

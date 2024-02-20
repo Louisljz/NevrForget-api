@@ -6,7 +6,7 @@ import numpy as np
 
 openai = OpenAI()
 
-def init_feedbacks(rag_chain):
+def init_rag_feedbacks(rag_chain):
     context = App.select_context(rag_chain)
     grounded = Groundedness(groundedness_provider=OpenAI())
     f_groundedness = (
@@ -25,3 +25,13 @@ def init_feedbacks(rag_chain):
     )
 
     return [f_groundedness, f_qa_relevance, f_context_relevance]
+
+def init_sum_feedbacks():
+    return [Feedback(openai.comprehensiveness_with_cot_reasons).on_input_output(),
+            Feedback(openai.coherence).on_output(),
+            Feedback(openai.conciseness).on_output()]
+
+def init_card_feedbacks():
+    return [Feedback(openai.relevance_with_cot_reasons).on_input_output(),
+            Feedback(openai.correctness).on_output(),
+            Feedback(openai.helpfulness).on_output()]
