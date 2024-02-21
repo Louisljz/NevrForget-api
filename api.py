@@ -1,3 +1,13 @@
+import os
+import json
+from fastapi import FastAPI
+from datetime import datetime, timedelta
+from pydantic import BaseModel, Field
+from typing import List
+from dotenv import load_dotenv
+load_dotenv()
+
+
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -11,17 +21,10 @@ from langchain_core.utils.function_calling import convert_to_openai_function
 from trulens_eval import Tru, TruChain
 from trulens_feedback import init_rag_feedbacks, init_sum_feedbacks, init_card_feedbacks
 
-import json
-from fastapi import FastAPI
-from datetime import datetime, timedelta
-from pydantic import BaseModel, Field
-from typing import List
-from dotenv import load_dotenv
 
 
-load_dotenv()
 app = FastAPI()
-tru = Tru()
+tru = Tru(database_url=os.environ['TRULENS_DB_URL'])
 model = ChatOpenAI(model='gpt-4-turbo-preview')
 embeddings = OpenAIEmbeddings()
 output_parser = StrOutputParser()
@@ -77,7 +80,7 @@ def run_metadata_retrieval(date_stamp):
     if res['documents']:
         template = """
         What daily activities were carried out based only on the following context. {context}
-        Keep your response concise, with maximum of three sentences. 
+        Keep your response direct and concise, with maximum of three sentences. 
         """
         prompt = ChatPromptTemplate.from_template(template)
 
@@ -170,29 +173,3 @@ def flashcard(n: int):
     with card_recorder:
         flashcards = card_chain.invoke({'n': n, 'documents': doc_str})
     return {'flashcards': flashcards}
-
-
-@app.post("/base-query")
-def base_query(question: str):
-    retriever = vector_store.as_retriever(search_kwargs={'k': 1})
-
-    template = """Answer the question based only on the following context: {context}
-    If the context does not contain the answer, please respond with "I don't know".
-    Question: {question}
-    """
-    rag_prompt = ChatPromptTemplate.from_template(template)
-
-    rag_chain = (
-        {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        | rag_prompt
-        | model
-        | output_parser
-    )
-    rag_feedbacks = init_rag_feedbacks(rag_chain)
-    rag_recorder = TruChain(rag_chain,
-                            app_id='Basic Retrieval Chain',
-                            feedbacks=rag_feedbacks)
-    
-    with rag_recorder:
-        answer = rag_chain.invoke(question)
-    return answer
