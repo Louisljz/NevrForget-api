@@ -1,0 +1,11 @@
+You: hello
+AI:  "Hello! How can I assist you today?"
+You: where i had my painting class?
+AI:  "You had your painting class at the community center."
+You: what i do on 20 feb?
+AI:  "On February 20, 2024, the person attended a painting class for the first time at the community center, experiencing initial clumsiness with the brush which eventually turned into a comfortable rhythm. They painted a garden scene with a sunrise, inspired by a view they admired from a window. This activity was described as a fulfilling experience, akin to capturing a part of their soul on canvas."
+You: how about next day?
+AI:  "On February 21, 2024, the person started their day with a morning walk in the park, appreciating the sight of blooming flowers. Later, they caught up with an old friend over coffee, sharing memories from their past. In the afternoon, they participated in a knitting club session, where they knitted scarves destined for charity."
+You: i had fun today at school
+AI:  "\"That sounds lovely! What did you do at school today that made it so fun?\""
+You: quit

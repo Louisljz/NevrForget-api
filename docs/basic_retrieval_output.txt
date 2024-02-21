@@ -1,0 +1,11 @@
+You: hello
+AI:  "I don't know."
+You: where i had my painting class?
+AI:  "You had your painting class at the community center."
+You: what i do on 20 feb?
+AI:  "I don't know."
+You: how about next day?
+AI:  "I don't know."
+You: i had fun today at school
+AI:  "I don't know."
+You: quit

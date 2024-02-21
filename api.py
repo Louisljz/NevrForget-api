@@ -171,3 +171,28 @@ def flashcard(n: int):
         flashcards = card_chain.invoke({'n': n, 'documents': doc_str})
     return {'flashcards': flashcards}
 
+
+@app.post("/base-query")
+def base_query(question: str):
+    retriever = vector_store.as_retriever(search_kwargs={'k': 1})
+
+    template = """Answer the question based only on the following context: {context}
+    If the context does not contain the answer, please respond with "I don't know".
+    Question: {question}
+    """
+    rag_prompt = ChatPromptTemplate.from_template(template)
+
+    rag_chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | rag_prompt
+        | model
+        | output_parser
+    )
+    rag_feedbacks = init_rag_feedbacks(rag_chain)
+    rag_recorder = TruChain(rag_chain,
+                            app_id='Basic Retrieval Chain',
+                            feedbacks=rag_feedbacks)
+    
+    with rag_recorder:
+        answer = rag_chain.invoke(question)
+    return answer
