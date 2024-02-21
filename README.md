@@ -35,7 +35,7 @@
 1. `pip install -r requirements.txt`
 2. `uvicorn api:app --reload`
 3. Open in browser _localhost:8000/docs_
-4. Type `trulens-eval` on your terminal to open evaluation dashboard.
+4. Run `open_dashboard.py` to visualize trulens evaluation dashboard.
 
 ## Server Setup
 
