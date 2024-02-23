@@ -13,7 +13,6 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 
 from langchain.schema.output_parser import StrOutputParser
-from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.utils.function_calling import convert_to_openai_function
@@ -29,7 +28,7 @@ model = ChatOpenAI()
 embeddings = OpenAIEmbeddings()
 output_parser = StrOutputParser()
 vector_store = Chroma(embedding_function=embeddings, persist_directory="./chroma_db", collection_name="memory")
-
+date = datetime.now().date()
 
 class Message(BaseModel):
     type: str
@@ -165,8 +164,10 @@ def flashcard(n: int):
     res = vector_store._collection.get(where={'date_stamp': {'$gt': stamp}})
     doc_str = '\n\n'.join(res['documents'])
 
-    flashcard_prompt = ChatPromptTemplate.from_template('Create {n} flashcard(s) based on the following context: {documents}. Return a list of dictionaries, consist of "question" and "answer" keys. Parse in JSON format.')
-    card_chain = flashcard_prompt | model | JsonOutputParser()
+    flashcard_prompt = ChatPromptTemplate.from_template('''Create {n} flashcard(s) based on the following context: {documents}. 
+                                                        Return a list of dictionaries, consist of "question" and "answer" keys. 
+                                                        Make sure most documents are addressed. Parse in JSON format.''')
+    card_chain = flashcard_prompt | model | output_parser
     card_feedbacks = init_card_feedbacks()
     card_recorder = TruChain(card_chain,
                             app_id='Flashcards',
@@ -174,4 +175,4 @@ def flashcard(n: int):
     
     with card_recorder:
         flashcards = card_chain.invoke({'n': n, 'documents': doc_str})
-    return {'flashcards': flashcards}
+    return json.loads(flashcards)
