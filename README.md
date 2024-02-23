@@ -1,7 +1,8 @@
 # NevrForget API
 
 ## Cloud Architecture
-![system design](https://github.com/Louisljz/NevrForget-api/tree/main/docs/cloud-architecture.jpg)
+![system design](https://github.com/Louisljz/NevrForget-api/blob/main/docs/cloud-architecture.jpg)
+Link to [mobile app repo](https://github.com/Louisljz/NevrForget-app/) 
 
 ## Trulens Evaluation
 
