@@ -1,6 +1,7 @@
 import os
 import json
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from typing import List
@@ -23,6 +24,12 @@ from trulens_feedback import init_rag_feedbacks, init_sum_feedbacks, init_card_f
 
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_methods=['POST', 'GET'],
+)
+
 tru = Tru(database_url=os.environ['TRULENS_DB_URL'])
 model = ChatOpenAI()
 embeddings = OpenAIEmbeddings()
