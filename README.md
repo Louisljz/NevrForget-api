@@ -1,14 +1,7 @@
 # NevrForget API
 
-## Endpoints
-
-1. **Summarize**: summarize daily conversations to add to vectorstore
-2. **Query**:
-
-- Decision Making Layer: Storytelling or Retrieve-Memory
-- RAG pipeline: Context and Query
-
-3. **Flashcard**: Get n Flashcards from chat history over past week
+## Cloud Architecture
+![system design](https://github.com/Louisljz/NevrForget-api/tree/main/docs/cloud-architecture.jpg)
 
 ## Trulens Evaluation
 
