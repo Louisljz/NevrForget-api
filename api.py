@@ -25,11 +25,10 @@ from trulens_feedback import init_rag_feedbacks, init_sum_feedbacks, init_card_f
 
 app = FastAPI()
 tru = Tru(database_url=os.environ['TRULENS_DB_URL'])
-model = ChatOpenAI(model='gpt-4-turbo-preview')
+model = ChatOpenAI()
 embeddings = OpenAIEmbeddings()
 output_parser = StrOutputParser()
 vector_store = Chroma(embedding_function=embeddings, persist_directory="./chroma_db", collection_name="memory")
-date = datetime.now().date()
 
 
 class Message(BaseModel):
@@ -48,7 +47,7 @@ def run_semantic_retrieval(query):
 
     template = """Answer the question based only on the following context: {context}
     Question: {question}
-    Keep your response direct and concise, with maximum of three sentences. 
+    Write your response in one sentence.
     """
     rag_prompt = ChatPromptTemplate.from_template(template)
 
@@ -80,7 +79,7 @@ def run_metadata_retrieval(date_stamp):
     if res['documents']:
         template = """
         What daily activities were carried out based only on the following context. {context}
-        Keep your response direct and concise, with maximum of three sentences. 
+        Write your response in one sentence.
         """
         prompt = ChatPromptTemplate.from_template(template)
 
@@ -110,8 +109,9 @@ def convert_chat(chat_history):
 
 
 @app.post("/summarize")
-def summarize(chat_history: List[Message]):
+def summarize(chat_history: List[Message], date_str: str):
     messages = convert_chat(chat_history)
+    date = datetime.strptime(date_str, '%Y-%m-%d')
     summarize_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", "You should summarize this conversation, by listing down memorable activities throughout the day. Write bullet points only."),
@@ -127,7 +127,7 @@ def summarize(chat_history: List[Message]):
     
     with sum_recorder:
         summary = sum_chain.invoke({"chat_history": messages})
-    activity = f"Daily Activites on {date}: \n{summary}"
+    activity = f"Daily Activites on {date_str}: \n{summary}"
     vector_store.add_texts([activity], [{'date_stamp': get_date_stamp(date)}])
     return activity
 
@@ -136,7 +136,9 @@ def summarize(chat_history: List[Message]):
 def query(question: str, chat_history: List[Message]):
     messages = convert_chat(chat_history)
     general_prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a dementia assistant, and your job is to refresh elderly memories by recalling events from the past and encourage them to storytell their day."),
+        ("system", '''You are a dementia assistant, and your job is to refresh elderly memories 
+         by recalling events from the past and encourage them to storytell their day.
+         Write your response in one sentence.'''),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{question}")
     ])

@@ -2,4 +2,6 @@ docs/
 client.py
 open_dashboard.py
 .gitignore
+.git/
+.streamlit/
 README.md
