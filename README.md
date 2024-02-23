@@ -2,7 +2,7 @@
 
 ## Cloud Architecture
 ![system design](https://github.com/Louisljz/NevrForget-api/blob/main/docs/cloud-architecture.jpg)
-Link to [mobile app repo](https://github.com/Louisljz/NevrForget-app/) 
+Link to [mobile app repo](https://github.com/jacdevv/nvr_forget) 
 
 ## OpenAI models
 1. GPT-3.5-Turbo for LLM
