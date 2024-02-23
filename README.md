@@ -4,6 +4,13 @@
 ![system design](https://github.com/Louisljz/NevrForget-api/blob/main/docs/cloud-architecture.jpg)
 Link to [mobile app repo](https://github.com/Louisljz/NevrForget-app/) 
 
+## OpenAI models
+1. GPT-3.5-Turbo for LLM
+2. Text Embedding for vector search
+3. Whisper n TTS for voice assistant
+4. DALL-E for avatar
+5. Vision (coming soon)
+
 ## Trulens Evaluation
 
 1. **RAG**:
